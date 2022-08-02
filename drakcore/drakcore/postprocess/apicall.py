@@ -33,11 +33,10 @@ def process_logfile(log):
         if pid in temp_files:
             out_file = temp_files[pid]
             out_file.write(b"\n")
-            out_file.write(out_line)
         else:
             out_file = NamedTemporaryFile(delete=False)
             temp_files[pid] = out_file
-            out_file.write(out_line)
+        out_file.write(out_line)
     return temp_files
 
 

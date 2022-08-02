@@ -17,7 +17,10 @@ from zipfile import ZipFile
 
 
 def debug_faults(page_faults):
-    faulted_pages = sorted(set(page_align((get_fault_va(fault))) for fault in page_faults))
+    faulted_pages = sorted(
+        {page_align((get_fault_va(fault))) for fault in page_faults}
+    )
+
 
     ranges = []
     current = []
@@ -25,9 +28,8 @@ def debug_faults(page_faults):
         current.append(a)
         if (b - a) == 0x1000:
             continue
-        else:
-            ranges.append(current)
-            current = []
+        ranges.append(current)
+        current = []
 
     for chunk in ranges:
         beg = chunk[0]
@@ -45,10 +47,14 @@ def build_frame_va_map(frames):
 
 
 def select_frame(frames, phys_addr):
-    for frame in frames:
-        if phys_addr == page_align(get_trap_pa(frame)):
-            return frame
-    return None
+    return next(
+        (
+            frame
+            for frame in frames
+            if phys_addr == page_align(get_trap_pa(frame))
+        ),
+        None,
+    )
 
 
 def match_frames(page_faults, frames, foreign_frames):
@@ -115,9 +121,7 @@ def get_ptxed_cmdline(analysis_dir, cr3_value, vcpu, use_blocks=False):
         name = Path(fname).name
         fpath = analysis_dir / "ipt" / "dumps" / name
         if fpath.stat().st_size == 0x1000:
-            pages.append("--raw")
-            pages.append(f"{fpath}:0x{addr:x}")
-
+            pages.extend(("--raw", f"{fpath}:0x{addr:x}"))
     binary = ["ptxed", "--block-decoder"]
 
     if use_blocks:

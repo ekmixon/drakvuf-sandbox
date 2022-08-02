@@ -54,8 +54,8 @@ class RuntimeInfo:
     vmi_offsets: VmiOffsets
     inject_pid: int
 
-    def load(file_obj: IO[AnyStr]) -> 'RuntimeInfo':
-        return RuntimeInfo.from_json(file_obj.read())
+    def load(self) -> 'RuntimeInfo':
+        return RuntimeInfo.from_json(self.read())
 
 
 def patch_config(cfg):
@@ -72,7 +72,7 @@ def patch_config(cfg):
 
         with open('/etc/drakcore/minio.env', 'r') as f:
             minio_cfg = [line.strip().split('=', 1) for line in f if line.strip() and '=' in line]
-            minio_cfg = {k: v for k, v in minio_cfg}
+            minio_cfg = dict(minio_cfg)
 
         try:
             cfg.config['minio']['access_key'] = minio_cfg['MINIO_ACCESS_KEY']

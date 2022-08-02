@@ -7,9 +7,8 @@ try:
     with open(os.path.join("/", "etc", "drakrun", "scripts", "cfg.template"), 'r') as f:
         template = f.read()
 
-    m = re.search(r'vncpasswd[ ]*=(.*)', template)
-    if m:
-        passwd = m.group(1).strip()
+    if m := re.search(r'vncpasswd[ ]*=(.*)', template):
+        passwd = m[1].strip()
         if passwd[0] == '"' and passwd[-1] == '"':
             passwd = passwd[1:-1]
 

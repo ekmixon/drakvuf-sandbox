@@ -41,10 +41,8 @@ def find_default_interface():
         .decode('ascii').strip().split('\n')
 
     for route in routes:
-        m = re.search(r'dev ([^ ]+)', route.strip())
-
-        if m:
-            return m.group(1)
+        if m := re.search(r'dev ([^ ]+)', route.strip()):
+            return m[1]
 
     return None
 
@@ -64,9 +62,7 @@ def detect_defaults():
     out_interface = conf.get('drakrun', 'out_interface')
 
     if not out_interface:
-        default_if = find_default_interface()
-
-        if default_if:
+        if default_if := find_default_interface():
             logging.info(f"Detected default network interface: {default_if}")
             conf['drakrun']['out_interface'] = default_if
         else:
@@ -86,11 +82,10 @@ def ensure_lvm(ctx, param, value):
 
 
 def check_root():
-    if os.getuid() != 0:
-        logging.error("Please run the command as root")
-        return False
-    else:
+    if os.getuid() == 0:
         return True
+    logging.error("Please run the command as root")
+    return False
 
 
 def stop_all_drakruns():
@@ -374,7 +369,7 @@ def install(vcpus, memory, storage_backend, disk_size, iso_path, zfs_tank_name, 
     cfg_path = os.path.join(VM_CONFIG_DIR, "vm-0.cfg")
 
     try:
-        subprocess.run('xl create {}'.format(shlex.quote(cfg_path)), shell=True, check=True)
+        subprocess.run(f'xl create {shlex.quote(cfg_path)}', shell=True, check=True)
     except subprocess.CalledProcessError:
         logging.exception("Failed to launch VM vm-0")
         return
@@ -387,9 +382,8 @@ def install(vcpus, memory, storage_backend, disk_size, iso_path, zfs_tank_name, 
 
     with open(cfg_path, "r") as f:
         data = f.read()
-        m = re.search(r'vncpasswd[ ]*=(.*)', data)
-        if m:
-            passwd = m.group(1).strip()
+        if m := re.search(r'vncpasswd[ ]*=(.*)', data):
+            passwd = m[1].strip()
             if passwd[0] == '"' and passwd[-1] == '"':
                 passwd = passwd[1:-1]
 
@@ -422,7 +416,7 @@ def create_rekall_profile(injector: Injector, file: DLL):
         if out["Status"] == "Error" and out["Error"] in ["ERROR_FILE_NOT_FOUND", "ERROR_PATH_NOT_FOUND"]:
             raise FileNotFoundError
         if out["Status"] != "Success":
-            logging.debug("stderr: " + cmd.stderr.decode())
+            logging.debug(f"stderr: {cmd.stderr.decode()}")
             logging.debug(out)
             # Take care if the error message is changed
             raise Exception("Some error occurred in injector")
@@ -448,15 +442,13 @@ def create_rekall_profile(injector: Injector, file: DLL):
     except RuntimeError:
         logging.warning(f"Failed to fetch profile for {file.path}, skipping...")
     except Exception as e:
-        # Take care if the error message is changed
         if str(e) == "Some error occurred in injector":
             raise
-        else:
-            logging.warning(f"Unexpected exception while creating rekall profile for {file.path}, skipping...")
+        logging.warning(f"Unexpected exception while creating rekall profile for {file.path}, skipping...")
             # Can help in debugging
-            logging.debug("stderr: " + cmd.stderr.decode())
-            logging.debug(out)
-            logging.debug(traceback.format_exc())
+        logging.debug(f"stderr: {cmd.stderr.decode()}")
+        logging.debug(out)
+        logging.debug(traceback.format_exc())
     finally:
         safe_delete(local_dll_path)
         # was crashing here if the first file reached some exception
@@ -483,7 +475,7 @@ def extract_explorer_pid(
 
         m = re.search(r'explorer\.exe:([0-9]+)', explorer_pid_s)
         if m is not None:
-            return int(m.group(1))
+            return int(m[1])
 
     except subprocess.CalledProcessError:
         logging.exception("get-explorer-pid exited with an error")
@@ -562,15 +554,15 @@ def postinstall(report, generate_usermode):
     output = subprocess.check_output(['vmi-win-guid', 'name', 'vm-0'], timeout=30).decode('utf-8')
 
     try:
-        version = re.search(r'Version: (.*)', output).group(1)
-        pdb = re.search(r'PDB GUID: ([0-9a-f]+)', output).group(1)
-        fn = re.search(r'Kernel filename: ([a-z]+\.[a-z]+)', output).group(1)
+        version = re.search(r'Version: (.*)', output)[1]
+        pdb = re.search(r'PDB GUID: ([0-9a-f]+)', output)[1]
+        fn = re.search(r'Kernel filename: ([a-z]+\.[a-z]+)', output)[1]
     except AttributeError:
         logging.error("Failed to obtain kernel PDB GUID/Kernel filename.")
         return
 
-    logging.info("Determined PDB GUID: {}".format(pdb))
-    logging.info("Determined kernel filename: {}".format(fn))
+    logging.info(f"Determined PDB GUID: {pdb}")
+    logging.info(f"Determined kernel filename: {fn}")
 
     logging.info("Fetching PDB file...")
     dest = fetch_pdb(fn, pdb, destdir=PROFILE_DIR)
@@ -720,7 +712,7 @@ def wait_processes(descr, popens):
                     pbar.update(1)
 
             if len(popens) == 0:
-                return all([exit_code == 0 for exit_code in exit_codes])
+                return all(exit_code == 0 for exit_code in exit_codes)
 
 
 @click.command(help='Scale drakrun services',
@@ -733,7 +725,7 @@ def scale(scale_count):
         raise RuntimeError('Invalid value of scale parameter. Must be at least 1.')
 
     cur_services = set(list(get_enabled_drakruns()))
-    new_services = set([f'drakrun@{i}.service' for i in range(1, scale_count + 1)])
+    new_services = {f'drakrun@{i}.service' for i in range(1, scale_count + 1)}
 
     disable_services = cur_services - new_services
     enable_services = new_services
@@ -791,7 +783,7 @@ def snapshot_export(name, bucket, full, force):
         logging.error("Bucket %s doesn't exist", bucket)
         return
 
-    if len(list(mc.list_objects(bucket, f"{name}/"))) > 0 and not force:
+    if list(mc.list_objects(bucket, f"{name}/")) and not force:
         logging.error("There are objects in bucket %s at path %s. Aborting...", bucket, f"{name}/")
         return
 

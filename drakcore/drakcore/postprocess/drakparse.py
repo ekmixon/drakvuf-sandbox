@@ -22,11 +22,11 @@ class Base:
 
     def __str__(self):
         # hack to avoid printing empty stuff
-        if not self.valid:
-            return ""
-
-        # "Time of Day","Process Name","PID","Operation","Path","Result","Detail","TID"
-        return f'"{self.timestamp}","{self.proc_name}","{self.pid}","{self.operation}","{self.path}","{self.result}","{self.detail}","{self.tid}"'
+        return (
+            f'"{self.timestamp}","{self.proc_name}","{self.pid}","{self.operation}","{self.path}","{self.result}","{self.detail}","{self.tid}"'
+            if self.valid
+            else ""
+        )
 
 
 class Regmon(Base):
@@ -62,7 +62,7 @@ class Regmon(Base):
         if obj["Method"] == "NtCreateKey":
             detail = "Desired Access: All Access, Disposition: REG_OPENED_EXISTING_KEY"
 
-        if obj["Method"] == "NtOpenKey" or obj["Method"] == "NtOpenKeyEx":
+        if obj["Method"] in ["NtOpenKey", "NtOpenKeyEx"]:
             detail = "Desired Access: All Access"
 
         super().__init__(obj, method, key, detail=detail)
@@ -83,9 +83,18 @@ class FileTracer(Base):
         if obj.get("Method") == "NtCreateFile":
             super().__init__(obj, "CreateFile", obj["FileName"], detail="OpenResult: Created, Non-Directory File")
 
-        if obj.get("Method") == "NtSetInformationFile":
-            if "SrcFileName" in obj and "DstFileName" in obj:
-                super().__init__(obj, "SetRenameInformationFile", obj["SrcFileName"], detail='FileName: {}'.format(obj["DstFileName"]))
+        if (
+            obj.get("Method") == "NtSetInformationFile"
+            and "SrcFileName" in obj
+            and "DstFileName" in obj
+        ):
+            super().__init__(
+                obj,
+                "SetRenameInformationFile",
+                obj["SrcFileName"],
+                detail=f'FileName: {obj["DstFileName"]}',
+            )
+
 
         if obj.get("Method") == "NtWriteFile":
             super().__init__(obj, "WriteFile", obj["FileName"])
@@ -156,7 +165,8 @@ def parse_logs(lines: Iterable[Union[bytes, str]]) -> Generator[str, None, None]
     yield '"Time of Day","Process Name","PID","Operation","Path","Result","Detail","TID"'
     yield '"","","","","MINIBIS_EXECUTES_SAMPLE_minibis.bat","SUCCESS","",""'
     yield '"","minibis-cpp.exe","*1*","Process Create","","SUCCESS","PID: *2*, Command line: ++++++++",""'
-    yield '"","minibis-cpp.exe","*2*","Process Create","","SUCCESS","PID: {}, Command line: Explorer.EXE",""'.format(injected_pid)
+    yield f'"","minibis-cpp.exe","*2*","Process Create","","SUCCESS","PID: {injected_pid}, Command line: Explorer.EXE",""'
+
 
     for line in lines:
         try:

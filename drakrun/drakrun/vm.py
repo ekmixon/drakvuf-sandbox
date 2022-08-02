@@ -26,9 +26,7 @@ def generate_vm_conf(install_info: InstallInfo, vm_id: int):
 
     storage_backend = get_storage_backend(install_info)
 
-    disks = []
-    disks.append(storage_backend.get_vm_disk_path(vm_id))
-
+    disks = [storage_backend.get_vm_disk_path(vm_id)]
     install_iso_path = os.path.abspath(install_info.iso_path)
     disks.append(f'file:{install_iso_path},{FIRST_CDROM_DRIVE}:cdrom,r')
 
@@ -36,7 +34,7 @@ def generate_vm_conf(install_info: InstallInfo, vm_id: int):
         unattended_iso_path = os.path.join(LIB_DIR, 'volumes', 'unattended.iso')
         disks.append(f'file:{unattended_iso_path},{SECOND_CDROM_DRIVE}:cdrom,r')
 
-    disks = ', '.join(['"{}"'.format(disk) for disk in disks])
+    disks = ', '.join([f'"{disk}"' for disk in disks])
 
     template = template.replace('{{ VM_ID }}', str(vm_id))
     template = template.replace('{{ DISKS }}', disks)
@@ -64,7 +62,7 @@ def get_all_vm_conf() -> list:
         reg = regex.search(f)
 
         if reg is not None:
-            vm_ids.append(int(reg.group(1)))
+            vm_ids.append(int(reg[1]))
 
     return vm_ids
 

@@ -47,21 +47,15 @@ def vba_seperate_lines(input_vba_content):
     input_vba_content = input_vba_content.replace("\r\n", LINE_SEP)
 
     # Concat VBA lines that were split by " _".
-    input_vba_content = input_vba_content.replace(" _" + LINE_SEP, " ")
+    input_vba_content = input_vba_content.replace(f" _{LINE_SEP}", " ")
     return input_vba_content.split(LINE_SEP)
 
 
 def vba_clean_whitespace(vba_content_lines):
     result_vba_lines = []
     for vba_line in vba_content_lines:
-        # Remove leading and trailing whitespace
-        # & reduce multiple whitespaces into one space.
-        vba_line = " ".join(vba_line.split())
-
-        # Check and discard empty lines.
-        if vba_line == "":
-            continue
-        result_vba_lines.append(vba_line)
+        if vba_line := " ".join(vba_line.split()):
+            result_vba_lines.append(vba_line)
     return result_vba_lines
 
 
@@ -74,11 +68,12 @@ def vba_clean_metadata(vba_content_lines):
 
         # Crop inline comments.
         possible_inline_comment_pos = vba_line.find(" '")
-        if possible_inline_comment_pos > -1:
-            # Look for '"' after the ', in order to find FP inline comment detections.
-            if vba_line.find('"', possible_inline_comment_pos) < 0:
-                inline_comment_pos = possible_inline_comment_pos
-                vba_line = vba_line[:inline_comment_pos]
+        if (
+            possible_inline_comment_pos > -1
+            and vba_line.find('"', possible_inline_comment_pos) < 0
+        ):
+            inline_comment_pos = possible_inline_comment_pos
+            vba_line = vba_line[:inline_comment_pos]
         result_vba_lines.append(vba_line)
     return result_vba_lines
 
@@ -107,18 +102,14 @@ def vba_extract_functions(vba_content_lines):
         #   Private Declare PtrSafe Function mcvWGqJifEVHwB Lib "urlmon" Alias "URLDownloadToFileA" (ByVal pfsseerwseer As Long,...
         #   - would become: mcvWGqJifEVHwB (URLDownloadToFileA) (External)
         if " Lib " in vba_line and ' Alias ' in vba_line and not inside_function:
-            if " Function " in vba_line:
-                func_type = " Function "
-            else:
-                func_type = " Sub "
-
+            func_type = " Function " if " Function " in vba_line else " Sub "
             declared_func_name = vba_line[vba_line.find(func_type) + len(
                 func_type):vba_line.find(" Lib ")]
             external_func_name = vba_line[
                 vba_line.find(" Alias \"") + len(" Alias \""):vba_line.find(
                     "\" (",
                     vba_line.find(" Alias \"") + len(" Alias \""))]
-            func_name = declared_func_name + " (" + external_func_name + ")" + " (External)"
+            func_name = f"{declared_func_name} ({external_func_name}) (External)"
 
             if "libc.dylib" in vba_line:
                 func_name += "(Mac)"
@@ -133,10 +124,7 @@ def vba_extract_functions(vba_content_lines):
         #   Public Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
         #   - would become: Sleep
         if " Lib " in vba_line and not inside_function:
-            if " Function " in vba_line:
-                func_type = " Function "
-            else:
-                func_type = " Sub "
+            func_type = " Function " if " Function " in vba_line else " Sub "
             func_name = vba_line[vba_line.find(func_type) + len(
                 func_type):vba_line.find(" Lib ")] + " (External)"
 
@@ -163,7 +151,6 @@ def vba_extract_functions(vba_content_lines):
             inside_function = False
             continue
 
-        # Check if we've hit a new function.
         elif legit_declare_line_start and func_start_pos > -1:
             inside_function = True
 
@@ -187,9 +174,6 @@ def vba_extract_functions(vba_content_lines):
                 # & add the first line of code.
                 vba_func_dict[func_name] = vba_line
 
-        # We are in a global section code line.
-        else:
-            pass
     return vba_func_dict
 
 
@@ -218,7 +202,6 @@ def vba_extract_properties(vba_content_lines):
             inside_property = False
             continue
 
-        # Check if we've hit a new property.
         elif prop_start_pos > -1:
             inside_property = True
 
@@ -231,7 +214,6 @@ def vba_extract_properties(vba_content_lines):
                 logging.error("Error parsing property name")
                 sys.exit(1)
 
-        # Check if we are inside a property code.
         elif inside_property:
             if prop_name in vba_prop_dict:
                 # Append code to to an existing property.
@@ -240,10 +222,6 @@ def vba_extract_properties(vba_content_lines):
                 # Create a new property name inside the dict
                 # & add the first line of code.
                 vba_prop_dict[prop_name] = vba_line
-
-        # We are in a global section code line.
-        else:
-            pass
 
     return vba_prop_dict
 
@@ -284,17 +262,13 @@ def vba2graph_gen(input_vba_content):
 
     # treat properties like functions and merge both dictionaries
     vba_func_dict = dict(vba_func_dict.items() | vba_prop_dict.items())
-    dg = create_call_graph(vba_func_dict)
-    return dg
+    return create_call_graph(vba_func_dict)
 
 
 def find_outer_nodes(dg):
-    inner_nodes = set()
-    for edge in dg.edges:
-        inner_nodes.add(edge[1])
+    inner_nodes = {edge[1] for edge in dg.edges}
     inner_nodes = list(inner_nodes)
-    outer_nodes = list(filter(lambda n: n not in inner_nodes, dg.nodes))
-    return outer_nodes
+    return list(filter(lambda n: n not in inner_nodes, dg.nodes))
 
 
 def get_outer_nodes_from_vba_file(filename):

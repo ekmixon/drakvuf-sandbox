@@ -146,13 +146,31 @@ class DrakrunKarton(Karton):
         with open(os.path.join(PROFILE_DIR, "runtime.json"), 'r') as runtime_f:
             self.runtime_info = RuntimeInfo.load(runtime_f)
 
-        self.active_plugins = {}
-        self.active_plugins["_all_"] = [
-            'apimon', 'bsodmon', 'clipboardmon', 'cpuidmon', 'crashmon',
-            'debugmon', 'delaymon', 'exmon', 'filedelete', 'filetracer',
-            'librarymon', 'memdump', 'procdump', 'procmon', 'regmon',
-            'rpcmon', 'ssdtmon', 'syscalls', 'tlsmon', 'windowmon',
-            'wmimon']
+        self.active_plugins = {
+            "_all_": [
+                'apimon',
+                'bsodmon',
+                'clipboardmon',
+                'cpuidmon',
+                'crashmon',
+                'debugmon',
+                'delaymon',
+                'exmon',
+                'filedelete',
+                'filetracer',
+                'librarymon',
+                'memdump',
+                'procdump',
+                'procmon',
+                'regmon',
+                'rpcmon',
+                'ssdtmon',
+                'syscalls',
+                'tlsmon',
+                'windowmon',
+                'wmimon',
+            ]
+        }
 
         for quality, list_str in self.config.config.items('drakvuf_plugins'):
             plugins = [x for x in list_str.split(',') if x.strip()]
@@ -198,10 +216,13 @@ class DrakrunKarton(Karton):
     @property
     def test_run(self) -> bool:
         # If testing is disabled, it's not a test run
-        if not self.config.config['drakrun'].getboolean('sample_testing', fallback=False):
-            return False
-
-        return self.current_task.matches_filters(self.test_filters)
+        return (
+            self.current_task.matches_filters(self.test_filters)
+            if self.config.config['drakrun'].getboolean(
+                'sample_testing', fallback=False
+            )
+            else False
+        )
 
     @property
     def vm_name(self) -> str:
@@ -234,13 +255,13 @@ class DrakrunKarton(Karton):
                 return 'regsvr32 /s %f'
 
             if 'DllMain' in export[1]:
-                return 'rundll32 %f,{}'.format(export[1])
+                return f'rundll32 %f,{export[1]}'
 
         if exports:
             if exports[0][1]:
-                return 'rundll32 %f,{}'.format(export[1].split('@')[0])
+                return f"rundll32 %f,{export[1].split('@')[0]}"
             elif exports[0][0]:
-                return 'rundll32 %f,#{}'.format(export[0])
+                return f'rundll32 %f,#{export[0]}'
 
         return 'regsvr32 /s %f'
 
@@ -256,24 +277,24 @@ class DrakrunKarton(Karton):
         outer_macros = d_office.get_outer_nodes_from_vba_file(file_path)
         if not outer_macros:
             outer_macros = []
-        for outer_macro in outer_macros:
-            start_command.append(f'/m{outer_macro}')
-
+        start_command.extend(f'/m{outer_macro}' for outer_macro in outer_macros)
         return subprocess.list2cmdline(start_command)
 
     def _get_start_command(self, extension, sample, file_path):
         if extension == 'dll':
-            start_command = self.current_task.payload.get("start_command", self._get_dll_run_command(sample.content))
+            return self.current_task.payload.get(
+                "start_command", self._get_dll_run_command(sample.content)
+            )
+
         elif extension in ['exe', 'vbs']:
-            start_command = '%f'
+            return '%f'
         elif d_office.is_office_file(extension):
-            start_command = self._get_office_file_run_command(extension, file_path)
+            return self._get_office_file_run_command(extension, file_path)
         elif extension == 'ps1':
-            start_command = 'powershell.exe -executionpolicy bypass -File %f'
+            return 'powershell.exe -executionpolicy bypass -File %f'
         else:
             self.log.error("Unknown file extension - %s", extension)
-            start_command = None
-        return start_command
+            return None
 
     def crop_dumps(self, dirpath, target_zip):
         zipf = zipfile.ZipFile(target_zip, 'w', zipfile.ZIP_DEFLATED)
@@ -373,13 +394,9 @@ class DrakrunKarton(Karton):
         drakrun.processor.
         """
         payload = {"analysis_uid": self.analysis_uid}
-        payload.update(metadata)
+        payload |= metadata
 
-        if self.test_run:
-            headers = dict(self.test_headers)
-        else:
-            headers = dict(self.headers)
-
+        headers = dict(self.test_headers) if self.test_run else dict(self.headers)
         headers["quality"] = quality
 
         task = Task(headers, payload=payload)
@@ -437,9 +454,7 @@ class DrakrunKarton(Karton):
 
     @property
     def analysis_uid(self):
-        override_uid = self.current_task.payload.get('override_uid')
-
-        if override_uid:
+        if override_uid := self.current_task.payload.get('override_uid'):
             return override_uid
 
         if self.config.config.getboolean('drakrun', 'use_root_uid', fallback=False):
@@ -473,7 +488,7 @@ class DrakrunKarton(Karton):
         requested_plugins = self.current_task.payload.get("plugins", self.active_plugins['_all_'])
 
         drakvuf_cmd = ["drakvuf"] + self.generate_plugin_cmdline(task_quality, requested_plugins) + \
-                      ["-o", "json",
+                          ["-o", "json",
                        # be aware of https://github.com/tklengyel/drakvuf/pull/951
                        "-F",  # enable fast singlestep
                        "-j", "60",
@@ -492,29 +507,30 @@ class DrakrunKarton(Karton):
                        "-e", full_cmd,
                        "-c", cwd]
 
-        anti_hammering_threshold = self.config.config['drakrun'].getint('anti_hammering_threshold', fallback=None)
-
-        if anti_hammering_threshold:
+        if anti_hammering_threshold := self.config.config['drakrun'].getint(
+            'anti_hammering_threshold', fallback=None
+        ):
             drakvuf_cmd.extend(["--traps-ttl", anti_hammering_threshold])
 
         drakvuf_cmd.extend(self.get_profile_list())
 
-        syscall_filter = self.config.config['drakrun'].get('syscall_filter', None)
-        if syscall_filter:
+        if syscall_filter := self.config.config['drakrun'].get(
+            'syscall_filter', None
+        ):
             drakvuf_cmd.extend(["-S", syscall_filter])
 
         return drakvuf_cmd
 
     def analyze_sample(self, sample_path, workdir, outdir, start_command, timeout):
-        analysis_info = dict()
+        analysis_info = {}
 
         dns_server = self.config.config['drakrun'].get('dns_server', '8.8.8.8')
         drakmon_log_fp = os.path.join(outdir, "drakmon.log")
 
         with self.run_vm() as vm, \
-             graceful_exit(start_dnsmasq(self.instance_id, dns_server)), \
-             graceful_exit(start_tcpdump_collector(self.instance_id, outdir)), \
-             open(drakmon_log_fp, "wb") as drakmon_log:
+                 graceful_exit(start_dnsmasq(self.instance_id, dns_server)), \
+                 graceful_exit(start_tcpdump_collector(self.instance_id, outdir)), \
+                 open(drakmon_log_fp, "wb") as drakmon_log:
 
             analysis_info['snapshot_version'] = vm.backend.get_vm0_snapshot_time()
 
@@ -655,7 +671,7 @@ class DrakrunKarton(Karton):
             try:
                 self.log.info(f"Trying to analyze sample (attempt {i + 1}/{max_attempts})")
                 info = self.analyze_sample(sample_path, workdir, outdir, start_command, timeout)
-                metadata.update(info)
+                metadata |= info
                 break
             except Exception:
                 self.log.exception("Analysis attempt failed. Retrying...")
@@ -721,9 +737,7 @@ def main(args):
         logging.warning(f"Detected blank value for minio access_key in {conf_path}. "
                         "This service may not work properly.")
 
-    unrecommended = validate_xen_commandline()
-
-    if unrecommended:
+    if unrecommended := validate_xen_commandline():
         logging.warning("-" * 80)
         logging.warning("You don't have the recommended settings in your Xen's command line.")
         logging.warning("Please amend settings in your GRUB_CMDLINE_XEN_DEFAULT in /etc/default/grub.d/xen.cfg file.")

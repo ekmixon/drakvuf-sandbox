@@ -57,18 +57,28 @@ class DrakmonShell:
 
         log = open(workdir / "drakmon.log", "wb")
 
-        cmd = ["drakvuf"]
-        cmd.extend([
-            "-o", "json",
-            "F",
-            "-j", "5",
-            "-t", str(timeout),
-            "-i", str(self.runtime_info.inject_pid),
-            "-k", str(self.runtime_info.vmi_offsets.kpgd),
-            "-r", self.kernel_profile,
-            "-d", self.vm.vm_name,
-            "--dll-hooks-list", Path(ETC_DIR) / "hooks.txt",
-        ])
+        cmd = [
+            "drakvuf",
+            *[
+                "-o",
+                "json",
+                "F",
+                "-j",
+                "5",
+                "-t",
+                str(timeout),
+                "-i",
+                str(self.runtime_info.inject_pid),
+                "-k",
+                str(self.runtime_info.vmi_offsets.kpgd),
+                "-r",
+                self.kernel_profile,
+                "-d",
+                self.vm.vm_name,
+                "--dll-hooks-list",
+                Path(ETC_DIR) / "hooks.txt",
+            ],
+        ]
 
         if "memdump" in plugins:
             dumps = workdir / "dumps"

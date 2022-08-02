@@ -38,10 +38,9 @@ def slice_drakmon_logs(task: Task, resources: Dict[str, RemoteResource], minio):
                         # Log the failure and count statistics
 
                         plugin_heuristic: bytes = r'"Plugin": "(\w+)"'.encode()
-                        match = re.match(plugin_heuristic, line)
-                        if match:
+                        if match := re.match(plugin_heuristic, line):
                             # we've matched a unicode word, this shouldn't fail
-                            plugin = match.group(1).decode('utf-8', 'replace')
+                            plugin = match[1].decode('utf-8', 'replace')
                         else:
                             plugin = "unknown"
 

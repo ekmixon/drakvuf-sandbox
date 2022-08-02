@@ -151,8 +151,7 @@ class ZfsStorageBackend(StorageBackendBase):
     def get_vm0_snapshot_time(self):
         base_snap = shlex.quote(os.path.join(self.zfs_tank_name, "vm-0@booted"))
         out = subprocess.check_output(f"zfs get -H -p -o value creation {base_snap}", shell=True)
-        ts = int(out.decode('ascii').strip())
-        return ts
+        return int(out.decode('ascii').strip())
 
     def export_vm0(self, file):
         with open(file, "wb") as snapshot_file:
@@ -239,11 +238,8 @@ class Qcow2StorageBackend(StorageBackendBase):
     def rollback_vm_storage(self, vm_id: int):
         volume_path = os.path.join(VOLUME_DIR, f"vm-{vm_id}.img")
         vm0_path = os.path.join(VOLUME_DIR, "vm-0.img")
-        try:
+        with contextlib.suppress(FileNotFoundError):
             os.unlink(volume_path)
-        except FileNotFoundError:
-            pass
-
         subprocess.run(
             [
                 "qemu-img",
@@ -409,7 +405,7 @@ class LvmStorageBackend(StorageBackendBase):
         if len(target_lvs) > 1:
             raise RuntimeError('Found multiple lvs named vm-0-snap!')
 
-        if len(target_lvs) == 0:
+        if not target_lvs:
             raise RuntimeError('Failed to find LV vm-0-snap!')
 
         dt = datetime.datetime.strptime(target_lvs[0]['lv_time'], "%Y-%m-%d %H:%M:%S %z")

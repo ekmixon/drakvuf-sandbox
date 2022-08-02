@@ -85,9 +85,9 @@ class AnalysisProcessor(Karton):
 
             try:
                 self.log.debug("Running postprocess - %s", plugin.handler.__name__)
-                outputs = plugin.handler(self.current_task, task_resources, self.backend.minio)
-
-                if outputs:
+                if outputs := plugin.handler(
+                    self.current_task, task_resources, self.backend.minio
+                ):
                     for out in outputs:
                         self.log.debug(f"Step {plugin.handler.__name__} outputted new resource: {out}")
                         res_name = os.path.join(self.current_task.payload["analysis_uid"], out)

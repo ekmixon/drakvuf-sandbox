@@ -56,7 +56,7 @@ def main(new_version):
         if input_lines == output_lines:
             print("[*] No changes detected.")
             return
-        print("=== " + str(path))
+        print(f"=== {str(path)}")
         for line in difflib.unified_diff(input_lines, output_lines, lineterm=""):
             print(line)
 
@@ -74,7 +74,7 @@ def main(new_version):
 
 
 if __name__ == "__main__":
-    if not sys.argv[1:]:
-        print("Usage: bump_version.py [new_version]")
-    else:
+    if sys.argv[1:]:
         main(sys.argv[1])
+    else:
+        print("Usage: bump_version.py [new_version]")

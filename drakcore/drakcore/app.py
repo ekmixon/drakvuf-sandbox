@@ -64,34 +64,23 @@ def upload():
     task = Task({"type": "sample", "stage": "recognized", "platform": "win32"})
     task.add_payload("override_uid", task.uid)
 
-    # Add analysis timeout to task
-    timeout = request.form.get("timeout")
-    if timeout:
+    if timeout := request.form.get("timeout"):
         task.add_payload("timeout", int(timeout))
 
     # Add filename override to task
-    if request.form.get("file_name"):
-        filename = request.form.get("file_name")
-    else:
-        filename = request.files['file'].filename
+    filename = request.form.get("file_name") or request.files['file'].filename
     if not re.fullmatch(r'^((?![\\/><|:&])[\x20-\xfe])+\.(?:dll|exe|doc|docm|docx|dotm|xls|xlsx|xlsm|xltx|xltm)$',
                         filename, flags=re.IGNORECASE):
         return jsonify({"error": "invalid file_name"}), 400
     task.add_payload("file_name", os.path.splitext(filename)[0])
 
-    # Extract and add extension
-    extension = os.path.splitext(filename)[1][1:]
-    if extension:
+    if extension := os.path.splitext(filename)[1][1:]:
         task.headers['extension'] = extension
 
-    # Add startup command to task
-    start_command = request.form.get("start_command")
-    if start_command:
+    if start_command := request.form.get("start_command"):
         task.add_payload("start_command", start_command)
 
-    # Add plugins to task
-    plugins = request.form.get("plugins")
-    if plugins:
+    if plugins := request.form.get("plugins"):
         plugins = json.loads(plugins)
         task.add_payload("plugins", plugins)
 
@@ -218,10 +207,9 @@ def status(task_uid):
     res = {"status": "done"}
 
     for task in backend.get_all_tasks():
-        if task.root_uid == task_uid:
-            if task.status != TaskState.FINISHED:
-                res["status"] = "pending"
-                break
+        if task.root_uid == task_uid and task.status != TaskState.FINISHED:
+            res["status"] = "pending"
+            break
 
     res["vm_id"] = backend.redis.get(f"drakvnc:{task_uid}")
     return jsonify(res)
@@ -248,7 +236,7 @@ def catchall(path):
 
 
 def main():
-    drakmon_cfg = {k: v for k, v in conf.config.items("drakmon")}
+    drakmon_cfg = dict(conf.config.items("drakmon"))
     app.run(host=drakmon_cfg["listen_host"], port=drakmon_cfg["listen_port"])
 
 

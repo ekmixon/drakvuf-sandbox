@@ -79,21 +79,23 @@ def start_dnsmasq(vm_id: int, dns_server: str, background=False) -> Optional[sub
                 log.info("Already running dnsmasq in background")
                 return
 
-    return subprocess.Popen([
-        "dnsmasq",
-        "--no-daemon" if not background else "",
-        "--conf-file=/dev/null",
-        "--bind-interfaces",
-        f"--interface=drak{vm_id}",
-        "--port=0",
-        "--no-hosts",
-        "--no-resolv",
-        "--no-poll",
-        "--leasefile-ro",
-        f"--pid-file=/var/run/dnsmasq-vm{vm_id}.pid",
-        f"--dhcp-range=10.13.{vm_id}.100,10.13.{vm_id}.200,255.255.255.0,12h",
-        f"--dhcp-option=option:dns-server,{dns_server}"
-    ])
+    return subprocess.Popen(
+        [
+            "dnsmasq",
+            "" if background else "--no-daemon",
+            "--conf-file=/dev/null",
+            "--bind-interfaces",
+            f"--interface=drak{vm_id}",
+            "--port=0",
+            "--no-hosts",
+            "--no-resolv",
+            "--no-poll",
+            "--leasefile-ro",
+            f"--pid-file=/var/run/dnsmasq-vm{vm_id}.pid",
+            f"--dhcp-range=10.13.{vm_id}.100,10.13.{vm_id}.200,255.255.255.0,12h",
+            f"--dhcp-option=option:dns-server,{dns_server}",
+        ]
+    )
 
 
 def stop_dnsmasq(vm_id: int):

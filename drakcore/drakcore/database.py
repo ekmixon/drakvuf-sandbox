@@ -10,8 +10,7 @@ class Database(BaseDb):
     def select_metadata_by_uid(self, analysis_uid: str) -> Optional[AnalysisMetadata]:
         with self.get_cursor() as cursor:
             cursor.execute("SELECT value FROM metadata WHERE uid = ?", (analysis_uid,))
-            result = cursor.fetchone()
-            if result:
+            if result := cursor.fetchone():
                 return json.loads(result["value"])
 
     def insert_metadata(self, analysis_uid: str, metadata: AnalysisMetadata):

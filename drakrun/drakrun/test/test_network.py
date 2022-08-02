@@ -24,12 +24,10 @@ def count_num_rules(rule_to_check):
     # Arguments used in iptables -A are being split
     # as the arguments order doesn't remain the same in iptables -S and iptables -A
     arguments_to_search = rule_to_check.split('-')
-    count = 0
-    for rule in rules:
-        if all([argument in rule for argument in arguments_to_search]):
-            count += 1
-
-    return count
+    return sum(
+        all(argument in rule for argument in arguments_to_search)
+        for rule in rules
+    )
 
 
 def iptables_test():

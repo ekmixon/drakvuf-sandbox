@@ -13,16 +13,11 @@ def remove_files(paths):
 
     # change names
     for i in paths:
-        try:
+        with contextlib.suppress(FileNotFoundError):
             shutil.move(i, f"{i}.bak")
-        except FileNotFoundError:
-            pass
-
     yield
 
     # restore the names
     for i in paths:
-        try:
+        with contextlib.suppress(FileNotFoundError):
             shutil.move(f"{i}.bak", i)
-        except FileNotFoundError:
-            pass

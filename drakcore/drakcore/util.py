@@ -15,7 +15,9 @@ def find_config():
     elif os.path.exists(etc_path):
         return etc_path
     else:
-        raise RuntimeError("Configuration file was not found neither in {} nor {}".format(local_path, etc_path))
+        raise RuntimeError(
+            f"Configuration file was not found neither in {local_path} nor {etc_path}"
+        )
 
 
 def get_config():
@@ -34,7 +36,7 @@ def get_config():
 
         with open('/etc/drakcore/minio.env', 'r') as f:
             minio_cfg = [line.strip().split('=', 1) for line in f if line.strip() and '=' in line]
-            minio_cfg = {k: v for k, v in minio_cfg}
+            minio_cfg = dict(minio_cfg)
 
         try:
             cfg.config['minio']['access_key'] = minio_cfg['MINIO_ACCESS_KEY']

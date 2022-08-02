@@ -21,9 +21,7 @@ def line_marker(line, offset):
 
 
 def generate_file_index(file, chunk_size=1024 * 1024):
-    markers = []
-    markers.append(line_marker(0, 0))
-
+    markers = [line_marker(0, 0)]
     current_chunk_size = 0
     file_offset = 0
     for i, line in enumerate(file, start=1):

@@ -26,9 +26,7 @@ def main():
     filename = os.path.basename(args.sample)
     task.add_payload("file_name", os.path.splitext(filename)[0])
 
-    # Extract and add extension
-    extension = os.path.splitext(filename)[1][1:]
-    if extension:
+    if extension := os.path.splitext(filename)[1][1:]:
         task.headers['extension'] = extension
 
     if args.start_command is not None:

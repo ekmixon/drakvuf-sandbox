@@ -189,9 +189,7 @@ class Demangler(object):
 
     def _UnpackMangledString(self, string):
         string = string.split("@")[3]
-        result = "str:" + self.STRING_MANGLE_RE.sub(
-            lambda m: self.STRING_MANGLE_MAP[m.group(0)], string)
-        return result
+        return f"str:{self.STRING_MANGLE_RE.sub(lambda m: self.STRING_MANGLE_MAP[m.group(0)], string)}"
 
     SIMPLE_X86_CALL = re.compile(r"[_@]([A-Za-z0-9_]+)@(\d{1,3})$")
     FUNCTION_NAME_RE = re.compile(r"\?([A-Za-z0-9_]+)@")
@@ -203,8 +201,7 @@ class Demangler(object):
         care about the prototype, nor c++ exports. In the future we should
         though.
         """
-        m = self.SIMPLE_X86_CALL.match(mangled_name)
-        if m:
+        if m := self.SIMPLE_X86_CALL.match(mangled_name):
             # If we see x86 name mangling (_cdecl, __stdcall) with stack sizes
             # of 4 bytes, this is definitely a 32 bit pdb. Sometimes we dont
             # know the architecture of the pdb file for example if we do not
@@ -213,8 +210,7 @@ class Demangler(object):
             # TODO set arch to i386
             return m.group(1)
 
-        m = self.FUNCTION_NAME_RE.match(mangled_name)
-        if m:
+        if m := self.FUNCTION_NAME_RE.match(mangled_name):
             return m.group(1)
 
         # Strip the first _ from the name. I386 mangled constants have a
@@ -308,7 +304,7 @@ def make_pdb_profile(filepath, dll_origin_path=None, dll_path=None):
 
     gsyms = pdb.STREAM_GSYM
     profile = {"$FUNCTIONS": {}, "$CONSTANTS": {}, "$STRUCTS": {}}
-    struct_specs = {name: info for name, info in traverse_tree(pdb.STREAM_TPI.structures.values())}
+    struct_specs = dict(traverse_tree(pdb.STREAM_TPI.structures.values()))
 
     for structName, structFields in struct_specs.items():
         if structFields != [0, {}]:
@@ -322,41 +318,27 @@ def make_pdb_profile(filepath, dll_origin_path=None, dll_path=None):
             sym_name = sym.name
             virt_base = sects[sym.segment - 1].VirtualAddress
             mapped = omap.remap(off + virt_base)
-            if (sym.symtype & 2) == 2:
-                target_key = "$FUNCTIONS"
-            else:
-                target_key = "$CONSTANTS"
-        except IndexError:
+            target_key = "$FUNCTIONS" if (sym.symtype & 2) == 2 else "$CONSTANTS"
+        except (IndexError, AttributeError):
             # skip symbol because segment was not found
             continue
-        except AttributeError:
-            # missing offset in symbol?
-            continue
-
         sym_name = Demangler().DemangleName(sym_name)
 
         if sym_name not in mapped_syms[target_key]:
-            mapped_syms[target_key][sym_name] = list()
+            mapped_syms[target_key][sym_name] = []
 
         mapped_syms[target_key][sym_name].append(mapped)
 
     for target_key, sym_dict in mapped_syms.items():
         for sym_name, value_set in sym_dict.items():
-            ndx = 0
-
-            for mapped in sorted(value_set):
-                if ndx == 0:
-                    next_sym_name = sym_name
-                else:
-                    next_sym_name = '{}_{}'.format(sym_name, ndx)
-
-                ndx += 1
+            for ndx, mapped in enumerate(sorted(value_set)):
+                next_sym_name = sym_name if ndx == 0 else f'{sym_name}_{ndx}'
                 profile[target_key][next_sym_name] = mapped
 
     del mapped_syms
     guid = pdb.STREAM_PDB.GUID
     guid_str = "%.8X%.4X%.4X%s" % (guid.Data1, guid.Data2, guid.Data3, guid.Data4.hex().upper())
-    symstore_hash = "%s%s" % (guid_str, pdb.STREAM_PDB.Age)
+    symstore_hash = f"{guid_str}{pdb.STREAM_PDB.Age}"
     base_fn = os.path.splitext(os.path.basename(filepath))[0]
 
     profile["$METADATA"] = {
@@ -386,7 +368,8 @@ def make_pdb_profile(filepath, dll_origin_path=None, dll_path=None):
 
 
 def fetch_pdb(pdbname, guidage, destdir='.'):
-    url = "https://msdl.microsoft.com/download/symbols/{}/{}/{}".format(pdbname, guidage.lower(), pdbname)
+    url = f"https://msdl.microsoft.com/download/symbols/{pdbname}/{guidage.lower()}/{pdbname}"
+
 
     try:
         with requests.get(url, stream=True) as res:
@@ -403,7 +386,7 @@ def fetch_pdb(pdbname, guidage, destdir='.'):
 
         return dest
     except HTTPError as e:
-        print("Failed to download from: {}, reason: {}".format(url, str(e)))
+        print(f"Failed to download from: {url}, reason: {str(e)}")
 
     raise RuntimeError("Failed to fetch PDB")
 
