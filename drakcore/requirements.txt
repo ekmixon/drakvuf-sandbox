@@ -1,4 +1,4 @@
-requests==2.25.1
+requests==2.31.0
 Flask==1.1.1
 karton-core==4.2.0
 redis==3.5.3
