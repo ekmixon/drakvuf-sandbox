@@ -1,3 +1,4 @@
 Sphinx==3.2.1
 sphinx-rtd-theme==0.5.0
 ipython==7.9.0
+prompt-toolkit>=3.0.13 # not directly required, pinned by Snyk to avoid a vulnerability
