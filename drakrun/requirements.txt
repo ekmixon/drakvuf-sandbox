@@ -16,3 +16,4 @@ regex==2020.7.14
 ipython==7.9.0
 malduck==4.1.0
 mwdblib==3.4.0
+prompt-toolkit>=3.0.13 # not directly required, pinned by Snyk to avoid a vulnerability
